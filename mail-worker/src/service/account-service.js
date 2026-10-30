@@ -148,9 +148,10 @@ const accountService = {
 			.limit(size)
 			.all();
 
+		const _debug = { userId, accountCount: list.length, accountIds: list.map(a => a.accountId) };
+
 		if (list.length > 0) {
 			const accountIds = list.map(a => a.accountId);
-			console.log('[DEBUG account-list] userId=', userId, 'accountIds=', JSON.stringify(accountIds));
 
 			const totalRows = await orm(c).select({
 				accountId: email.accountId,
@@ -161,7 +162,7 @@ const accountService = {
 				eq(email.isDel, isDel.NORMAL),
 				eq(email.type, emailConst.type.RECEIVE)
 			)).groupBy(email.accountId).all();
-			console.log('[DEBUG account-list] totalRows=', JSON.stringify(totalRows));
+			_debug.totalRows = totalRows;
 
 			const unreadRows = await orm(c).select({
 				accountId: email.accountId,
@@ -173,14 +174,20 @@ const accountService = {
 				eq(email.type, emailConst.type.RECEIVE),
 				eq(email.unread, emailConst.unread.UNREAD)
 			)).groupBy(email.accountId).all();
-			console.log('[DEBUG account-list] unreadRows=', JSON.stringify(unreadRows));
+			_debug.unreadRows = unreadRows;
 
-			// Debug: also try a raw SQL query to see if emails exist at all
-			const rawCount = await c.env.db.prepare('SELECT count(*) as cnt FROM email WHERE user_id = ? AND is_del = 0 AND type = 0').bind(userId).first();
-			console.log('[DEBUG account-list] rawCount(all emails for user)=', JSON.stringify(rawCount));
+			try {
+				const rawCount = await c.env.db.prepare('SELECT count(*) as cnt FROM email WHERE user_id = ? AND is_del = 0 AND type = 0').bind(userId).first();
+				_debug.rawTotalForUser = rawCount;
 
-			const rawCount2 = await c.env.db.prepare('SELECT count(*) as cnt, account_id as aid FROM email WHERE user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id').bind(userId).all();
-			console.log('[DEBUG account-list] rawCount2(per account)=', JSON.stringify(rawCount2));
+				const rawPerAccount = await c.env.db.prepare('SELECT count(*) as cnt, account_id as aid FROM email WHERE user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id').bind(userId).all();
+				_debug.rawPerAccount = rawPerAccount;
+
+				const sampleEmail = await c.env.db.prepare('SELECT email_id, account_id, user_id, type, is_del, unread FROM email WHERE user_id = ? LIMIT 3').bind(userId).all();
+				_debug.sampleEmails = sampleEmail.results;
+			} catch (e) {
+				_debug.rawQueryError = e.message;
+			}
 
 			const totalMap = {};
 			for (const row of totalRows) {
@@ -194,9 +201,12 @@ const accountService = {
 				a.totalCount = totalMap[a.accountId] || 0;
 				a.unreadCount = unreadMap[a.accountId] || 0;
 			}
-			console.log('[DEBUG account-list] final list counts=', JSON.stringify(list.map(a => ({ aid: a.accountId, total: a.totalCount, unread: a.unreadCount }))));
-		} else {
-			console.log('[DEBUG account-list] list is empty!');
+			_debug.finalCounts = list.map(a => ({ aid: a.accountId, total: a.totalCount, unread: a.unreadCount }));
+		}
+
+		// Attach debug info to first account item so it reaches the frontend
+		if (list.length > 0) {
+			list[0]._debug = _debug;
 		}
 
 		return list;
