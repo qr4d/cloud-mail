@@ -201,6 +201,15 @@ watch(
   () => nextTick(updateSenderWrap)
 )
 
+function fetchFullContentIfNeeded() {
+  const current = email.value
+  if (!current?.emailId) return
+  const cached = emailStore.detailMap[current.emailId]
+  if (cached?._full) return
+  if (current.content || current.text) return
+  emailStore.fetchDetail(current.emailId)
+}
+
 onMounted(() => {
   fetchFullContentIfNeeded()
   tryMarkRead()
