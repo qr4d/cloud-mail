@@ -150,6 +150,7 @@ const accountService = {
 
 		if (list.length > 0) {
 			const accountIds = list.map(a => a.accountId);
+			console.log('[DEBUG account-list] userId=', userId, 'accountIds=', JSON.stringify(accountIds));
 
 			const totalRows = await orm(c).select({
 				accountId: email.accountId,
@@ -160,6 +161,7 @@ const accountService = {
 				eq(email.isDel, isDel.NORMAL),
 				eq(email.type, emailConst.type.RECEIVE)
 			)).groupBy(email.accountId).all();
+			console.log('[DEBUG account-list] totalRows=', JSON.stringify(totalRows));
 
 			const unreadRows = await orm(c).select({
 				accountId: email.accountId,
@@ -171,6 +173,14 @@ const accountService = {
 				eq(email.type, emailConst.type.RECEIVE),
 				eq(email.unread, emailConst.unread.UNREAD)
 			)).groupBy(email.accountId).all();
+			console.log('[DEBUG account-list] unreadRows=', JSON.stringify(unreadRows));
+
+			// Debug: also try a raw SQL query to see if emails exist at all
+			const rawCount = await c.env.db.prepare('SELECT count(*) as cnt FROM email WHERE user_id = ? AND is_del = 0 AND type = 0').bind(userId).first();
+			console.log('[DEBUG account-list] rawCount(all emails for user)=', JSON.stringify(rawCount));
+
+			const rawCount2 = await c.env.db.prepare('SELECT count(*) as cnt, account_id as aid FROM email WHERE user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id').bind(userId).all();
+			console.log('[DEBUG account-list] rawCount2(per account)=', JSON.stringify(rawCount2));
 
 			const totalMap = {};
 			for (const row of totalRows) {
@@ -184,6 +194,9 @@ const accountService = {
 				a.totalCount = totalMap[a.accountId] || 0;
 				a.unreadCount = unreadMap[a.accountId] || 0;
 			}
+			console.log('[DEBUG account-list] final list counts=', JSON.stringify(list.map(a => ({ aid: a.accountId, total: a.totalCount, unread: a.unreadCount }))));
+		} else {
+			console.log('[DEBUG account-list] list is empty!');
 		}
 
 		return list;
