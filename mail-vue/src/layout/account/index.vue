@@ -10,11 +10,14 @@
                  @click="changeAccount(item)">
           <div class="account">
             {{ item.email }}
+            <span class="unread-badge" v-if="accountStore.unreadCountMap[item.accountId] > 0">{{ accountStore.unreadCountMap[item.accountId] > 99 ? '99+' : accountStore.unreadCountMap[item.accountId] }}</span>
           </div>
           <div class="opt">
             <div class="send-email" @click.stop>
-              <Icon @click="setAllReceive(item)" v-if="!item.allReceive" icon="eva:email-fill" width="22" height="22" color="#fccb1a"/>
-              <Icon @click="setAllReceive(item)" v-else icon="flat-color-icons:folder" width="22" height="22" color="#23c4f1" />
+              <el-tooltip effect="dark" :content="item.allReceive ? $t('allReceiveEnabled') : $t('allReceiveDisabled')" placement="top">
+                <Icon @click="setAllReceive(item)" v-if="!item.allReceive" icon="eva:email-fill" width="22" height="22" color="#fccb1a"/>
+                <Icon @click="setAllReceive(item)" v-else icon="flat-color-icons:folder" width="22" height="22" color="#23c4f1" />
+              </el-tooltip>
             </div>
             <div class="settings" @click.stop>
               <Icon icon="fluent-color:clipboard-24" width="22" height="22" @click.stop="copyAccount(item.email)"/>
@@ -442,6 +445,7 @@ function getAccountList() {
     }
 
     accounts.push(...list)
+    accountStore.updateUnreadCount(Object.fromEntries(list.map(a => [a.accountId, a.unreadCount || 0])))
 
     loading.value = false
     followLoading.value = false
@@ -627,6 +631,22 @@ path[fill="#ffdda1"] {
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+
+      .unread-badge {
+        display: inline-block;
+        min-width: 18px;
+        height: 18px;
+        line-height: 18px;
+        text-align: center;
+        font-size: 11px;
+        font-weight: bold;
+        color: #fff;
+        background: var(--el-color-danger);
+        border-radius: 9px;
+        padding: 0 5px;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
     }
 
     .opt {

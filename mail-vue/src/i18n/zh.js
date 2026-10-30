@@ -386,5 +386,7 @@ const zh = {
     clientId: '客户端 ID',
     clientSecret: '客户端密钥',
     notOwner: '基础邮箱不属于您',
+    allReceiveDisabled: '点击启用全接收模式',
+    allReceiveEnabled: '全接收模式已启用，点击关闭',
 }
 export default zh

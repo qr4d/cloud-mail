@@ -179,15 +179,10 @@ function tryMarkRead() {
     emailStore.detailMap[emailId].unread = EmailUnreadEnum.READ
   }
   emailStore.markListRead(emailId)
+  accountStore.decrementUnread(accountStore.currentAccountId)
   emailRead([emailId]).finally(() => {
     readRequesting = false
   })
-}
-
-function fetchFullContentIfNeeded() {
-  const current = email.value
-  if (!current?.emailId) return
-  emailStore.fetchDetail(current.emailId).catch(e => console.error(e))
 }
 
 watch(

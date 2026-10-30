@@ -386,6 +386,8 @@ const en = {
     clientId: 'Client ID',
     clientSecret: 'Client Secret',
     notOwner: 'Base email does not belong to you',
+    allReceiveDisabled: 'Click to enable receive-all mode',
+    allReceiveEnabled: 'Receive-all enabled, click to disable',
 }
 
 export default en

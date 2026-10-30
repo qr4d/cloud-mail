@@ -5,8 +5,9 @@ import userService from './user-service';
 import emailService from './email-service';
 import orm from '../entity/orm';
 import account from '../entity/account';
+import email from '../entity/email';
 import { and, asc, eq, gt, inArray, count, sql, ne, or, lt, desc } from 'drizzle-orm';
-import {accountConst, isDel, settingConst} from '../const/entity-const';
+import {accountConst, isDel, settingConst, emailConst} from '../const/entity-const';
 import settingService from './setting-service';
 import turnstileService from './turnstile-service';
 import roleService from './role-service';
@@ -111,7 +112,7 @@ const accountService = {
 		return orm(c).select().from(account).where(sql`${account.email} COLLATE NOCASE = ${email}`).get();
 	},
 
-	list(c, params, userId) {
+	async list(c, params, userId) {
 
 		let { accountId, size, lastSort } = params;
 
@@ -131,7 +132,7 @@ const accountService = {
 			lastSort = 9999999999;
 		}
 
-		return orm(c).select().from(account).where(
+		const list = await orm(c).select().from(account).where(
 			and(
 				eq(account.userId, userId),
 				eq(account.isDel, isDel.NORMAL),
@@ -146,6 +147,30 @@ const accountService = {
 			.orderBy(desc(account.sort), asc(account.accountId))
 			.limit(size)
 			.all();
+
+		if (list.length > 0) {
+			const accountIds = list.map(a => a.accountId);
+			const unreadRows = await orm(c).select({
+				accountId: email.accountId,
+				unreadCount: count()
+			}).from(email).where(and(
+				inArray(email.accountId, accountIds),
+				eq(email.userId, userId),
+				eq(email.unread, emailConst.unread.UNREAD),
+				eq(email.isDel, isDel.NORMAL),
+				eq(email.type, emailConst.type.RECEIVE)
+			)).groupBy(email.accountId).all();
+
+			const unreadMap = {};
+			for (const row of unreadRows) {
+				unreadMap[row.accountId] = row.unreadCount;
+			}
+			for (const a of list) {
+				a.unreadCount = unreadMap[a.accountId] || 0;
+			}
+		}
+
+		return list;
 	},
 
 	async delete(c, params, userId) {
