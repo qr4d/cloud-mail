@@ -148,48 +148,30 @@ const accountService = {
 			.limit(size)
 			.all();
 
-		const _debug = { userId, accountCount: list.length, accountIds: list.map(a => a.accountId) };
-
 		if (list.length > 0) {
 			const accountIds = list.map(a => a.accountId);
 			const placeholders = accountIds.map(() => '?').join(',');
 
-			try {
-				const totalStmt = c.env.db.prepare(
-					`SELECT account_id as accountId, count(*) as totalCount FROM email WHERE account_id IN (${placeholders}) AND user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id`
-				).bind(...accountIds, userId);
-				const totalResult = await totalStmt.all();
-				_debug.rawTotalRows = totalResult.results;
+			const totalResult = await c.env.db.prepare(
+				`SELECT account_id as accountId, count(*) as totalCount FROM email WHERE account_id IN (${placeholders}) AND user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id`
+			).bind(...accountIds, userId).all();
 
-				const unreadStmt = c.env.db.prepare(
-					`SELECT account_id as accountId, count(*) as unreadCount FROM email WHERE account_id IN (${placeholders}) AND user_id = ? AND is_del = 0 AND type = 0 AND unread = 0 GROUP BY account_id`
-				).bind(...accountIds, userId);
-				const unreadResult = await unreadStmt.all();
-				_debug.rawUnreadRows = unreadResult.results;
+			const unreadResult = await c.env.db.prepare(
+				`SELECT account_id as accountId, count(*) as unreadCount FROM email WHERE account_id IN (${placeholders}) AND user_id = ? AND is_del = 0 AND type = 0 AND unread = 0 GROUP BY account_id`
+			).bind(...accountIds, userId).all();
 
-				const sampleEmail = await c.env.db.prepare('SELECT email_id, account_id, user_id, type, is_del, unread FROM email WHERE user_id = ? LIMIT 3').bind(userId).all();
-				_debug.sampleEmails = sampleEmail.results;
-
-				const totalMap = {};
-				for (const row of totalResult.results) {
-					totalMap[row.accountId] = Number(row.totalCount);
-				}
-				const unreadMap = {};
-				for (const row of unreadResult.results) {
-					unreadMap[row.accountId] = Number(row.unreadCount);
-				}
-				for (const a of list) {
-					a.totalCount = totalMap[a.accountId] || 0;
-					a.unreadCount = unreadMap[a.accountId] || 0;
-				}
-				_debug.finalCounts = list.map(a => ({ aid: a.accountId, total: a.totalCount, unread: a.unreadCount }));
-			} catch (e) {
-				_debug.queryError = e.message;
+			const totalMap = {};
+			for (const row of totalResult.results) {
+				totalMap[row.accountId] = Number(row.totalCount);
 			}
-		}
-
-		if (list.length > 0) {
-			list[0]._debug = _debug;
+			const unreadMap = {};
+			for (const row of unreadResult.results) {
+				unreadMap[row.accountId] = Number(row.unreadCount);
+			}
+			for (const a of list) {
+				a.totalCount = totalMap[a.accountId] || 0;
+				a.unreadCount = unreadMap[a.accountId] || 0;
+			}
 		}
 
 		return list;
