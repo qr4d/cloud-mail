@@ -152,59 +152,42 @@ const accountService = {
 
 		if (list.length > 0) {
 			const accountIds = list.map(a => a.accountId);
-
-			const totalRows = await orm(c).select({
-				accountId: email.accountId,
-				totalCount: count()
-			}).from(email).where(and(
-				inArray(email.accountId, accountIds),
-				eq(email.userId, userId),
-				eq(email.isDel, isDel.NORMAL),
-				eq(email.type, emailConst.type.RECEIVE)
-			)).groupBy(email.accountId).all();
-			_debug.totalRows = totalRows;
-
-			const unreadRows = await orm(c).select({
-				accountId: email.accountId,
-				unreadCount: count()
-			}).from(email).where(and(
-				inArray(email.accountId, accountIds),
-				eq(email.userId, userId),
-				eq(email.isDel, isDel.NORMAL),
-				eq(email.type, emailConst.type.RECEIVE),
-				eq(email.unread, emailConst.unread.UNREAD)
-			)).groupBy(email.accountId).all();
-			_debug.unreadRows = unreadRows;
+			const placeholders = accountIds.map(() => '?').join(',');
 
 			try {
-				const rawCount = await c.env.db.prepare('SELECT count(*) as cnt FROM email WHERE user_id = ? AND is_del = 0 AND type = 0').bind(userId).first();
-				_debug.rawTotalForUser = rawCount;
+				const totalStmt = c.env.db.prepare(
+					`SELECT account_id as accountId, count(*) as totalCount FROM email WHERE account_id IN (${placeholders}) AND user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id`
+				).bind(...accountIds, userId);
+				const totalResult = await totalStmt.all();
+				_debug.rawTotalRows = totalResult.results;
 
-				const rawPerAccount = await c.env.db.prepare('SELECT count(*) as cnt, account_id as aid FROM email WHERE user_id = ? AND is_del = 0 AND type = 0 GROUP BY account_id').bind(userId).all();
-				_debug.rawPerAccount = rawPerAccount;
+				const unreadStmt = c.env.db.prepare(
+					`SELECT account_id as accountId, count(*) as unreadCount FROM email WHERE account_id IN (${placeholders}) AND user_id = ? AND is_del = 0 AND type = 0 AND unread = 0 GROUP BY account_id`
+				).bind(...accountIds, userId);
+				const unreadResult = await unreadStmt.all();
+				_debug.rawUnreadRows = unreadResult.results;
 
 				const sampleEmail = await c.env.db.prepare('SELECT email_id, account_id, user_id, type, is_del, unread FROM email WHERE user_id = ? LIMIT 3').bind(userId).all();
 				_debug.sampleEmails = sampleEmail.results;
-			} catch (e) {
-				_debug.rawQueryError = e.message;
-			}
 
-			const totalMap = {};
-			for (const row of totalRows) {
-				totalMap[row.accountId] = Number(row.totalCount);
+				const totalMap = {};
+				for (const row of totalResult.results) {
+					totalMap[row.accountId] = Number(row.totalCount);
+				}
+				const unreadMap = {};
+				for (const row of unreadResult.results) {
+					unreadMap[row.accountId] = Number(row.unreadCount);
+				}
+				for (const a of list) {
+					a.totalCount = totalMap[a.accountId] || 0;
+					a.unreadCount = unreadMap[a.accountId] || 0;
+				}
+				_debug.finalCounts = list.map(a => ({ aid: a.accountId, total: a.totalCount, unread: a.unreadCount }));
+			} catch (e) {
+				_debug.queryError = e.message;
 			}
-			const unreadMap = {};
-			for (const row of unreadRows) {
-				unreadMap[row.accountId] = Number(row.unreadCount);
-			}
-			for (const a of list) {
-				a.totalCount = totalMap[a.accountId] || 0;
-				a.unreadCount = unreadMap[a.accountId] || 0;
-			}
-			_debug.finalCounts = list.map(a => ({ aid: a.accountId, total: a.totalCount, unread: a.unreadCount }));
 		}
 
-		// Attach debug info to first account item so it reaches the frontend
 		if (list.length > 0) {
 			list[0]._debug = _debug;
 		}
