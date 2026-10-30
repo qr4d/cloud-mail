@@ -10,7 +10,11 @@
                  @click="changeAccount(item)">
           <div class="account">
             {{ item.email }}
-            <span class="unread-badge" v-if="accountStore.unreadCountMap[item.accountId] > 0">{{ accountStore.unreadCountMap[item.accountId] > 99 ? '99+' : accountStore.unreadCountMap[item.accountId] }}</span>
+            <span class="mail-count" v-if="accountStore.mailCountMap[item.accountId]">
+              <span class="total">{{ accountStore.mailCountMap[item.accountId].total }}</span>
+              <span class="sep">|</span>
+              <span class="unread" :class="{ 'has-unread': accountStore.mailCountMap[item.accountId].unread > 0 }">{{ accountStore.mailCountMap[item.accountId].unread }}</span>
+            </span>
           </div>
           <div class="opt">
             <div class="send-email" @click.stop>
@@ -445,7 +449,7 @@ function getAccountList() {
     }
 
     accounts.push(...list)
-    accountStore.updateUnreadCount(Object.fromEntries(list.map(a => [a.accountId, a.unreadCount || 0])))
+    accountStore.updateMailCount(Object.fromEntries(list.map(a => [a.accountId, { total: a.totalCount || 0, unread: a.unreadCount || 0 }])))
 
     loading.value = false
     followLoading.value = false
@@ -632,20 +636,27 @@ path[fill="#ffdda1"] {
       white-space: nowrap;
       text-overflow: ellipsis;
 
-      .unread-badge {
-        display: inline-block;
-        min-width: 18px;
-        height: 18px;
-        line-height: 18px;
-        text-align: center;
+      .mail-count {
+        display: inline-flex;
+        align-items: center;
         font-size: 11px;
-        font-weight: bold;
-        color: #fff;
-        background: var(--el-color-danger);
-        border-radius: 9px;
-        padding: 0 5px;
+        font-weight: 600;
         margin-left: 6px;
         vertical-align: middle;
+
+        .total {
+          color: #909399;
+        }
+        .sep {
+          color: #c0c4cc;
+          margin: 0 1px;
+        }
+        .unread {
+          color: #909399;
+          &.has-unread {
+            color: var(--el-color-danger);
+          }
+        }
       }
     }
 

@@ -5,19 +5,21 @@ export const useAccountStore = defineStore('account', {
         currentAccountId: 0,
         currentAccount: {},
         changeUserAccountName: '',
-        unreadCountMap: {}
+        mailCountMap: {}
     }),
     actions: {
-        updateUnreadCount(map) {
-            this.unreadCountMap = { ...this.unreadCountMap, ...map }
+        updateMailCount(map) {
+            this.mailCountMap = { ...this.mailCountMap, ...map }
         },
         decrementUnread(accountId) {
-            if (this.unreadCountMap[accountId] > 0) {
-                this.unreadCountMap[accountId]--
+            const item = this.mailCountMap[accountId]
+            if (item && item.unread > 0) {
+                this.mailCountMap[accountId] = { ...item, unread: item.unread - 1 }
             }
         },
         incrementUnread(accountId) {
-            this.unreadCountMap[accountId] = (this.unreadCountMap[accountId] || 0) + 1
+            const item = this.mailCountMap[accountId] || { total: 0, unread: 0 }
+            this.mailCountMap[accountId] = { total: item.total + 1, unread: item.unread + 1 }
         }
     }
 })
