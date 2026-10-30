@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { EmailUnreadEnum } from '@/enums/email-enum.js'
 import { sanitizeEmailHtml } from '@/utils/email-html.js'
+import { emailDetail } from '@/request/email.js'
 
 export const useEmailStore = defineStore('email', {
     state: () => ({
@@ -36,15 +37,21 @@ export const useEmailStore = defineStore('email', {
             }
         },
         fetchList(request) {
-            return request(0).then(data => {
-                request(1).then(fullData => {
-                    const list = Array.isArray(fullData) ? fullData : fullData?.list
-                    this.applyFullList(list)
-                }).catch(e => {
-                    console.error(e)
-                })
-                return data
-            })
+            return request(0)
+        },
+        async fetchDetail(emailId) {
+            const existing = this.detailMap[emailId]
+            if (existing?._full) return existing
+            const detail = await emailDetail(emailId)
+            if (detail?.content) detail.content = sanitizeEmailHtml(detail.content)
+            if (!detail?.attList) detail.attList = []
+            detail._full = true
+            this.detailMap[emailId] = detail
+            const currentId = this.contentData.email?.emailId
+            if (currentId && currentId === emailId) {
+                this.contentData.email = detail
+            }
+            return detail
         },
         applyFullList(list) {
             if (!list?.length) return
@@ -53,8 +60,8 @@ export const useEmailStore = defineStore('email', {
                 if (!item?.emailId) continue
                 if (item.content) item.content = sanitizeEmailHtml(item.content)
                 if (!item.attList) item.attList = []
-                // 完整列表可能早于「标已读」返回，避免把本地已读状态盖回未读
                 const prev = this.detailMap[item.emailId]
+                if (prev?._full) continue
                 const keepRead = prev?.unread === EmailUnreadEnum.READ
                     || (currentId === item.emailId && this.contentData.email?.unread === EmailUnreadEnum.READ)
                 if (keepRead) {

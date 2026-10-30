@@ -11,7 +11,12 @@ import perm from "@/perm/perm.js";
 const pinia = createPinia().use(piniaPersistedState)
 import i18n from "@/i18n/index.js";
 const app = createApp(App).use(pinia)
-await init()
+const token = localStorage.getItem('token')
+if (token) {
+    await init()
+} else {
+    init()
+}
 app.use(router).use(i18n).directive('perm',perm)
 app.config.devtools = true;
 

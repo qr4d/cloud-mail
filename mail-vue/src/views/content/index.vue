@@ -184,6 +184,12 @@ function tryMarkRead() {
   })
 }
 
+function fetchFullContentIfNeeded() {
+  const current = email.value
+  if (!current?.emailId) return
+  emailStore.fetchDetail(current.emailId).catch(e => console.error(e))
+}
+
 watch(
   () => [
     email.value?.emailId,
@@ -201,6 +207,7 @@ watch(
 )
 
 onMounted(() => {
+  fetchFullContentIfNeeded()
   tryMarkRead()
   window.addEventListener('keydown', handleKeyDown);
   senderResizeObserver = new ResizeObserver(() => updateSenderWrap())

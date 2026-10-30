@@ -497,15 +497,19 @@ window.addEventListener('wheel', (event) => {
 })
 
 function openReply(email) {
-  const fullEmail = emailStore.detailMap[email.emailId]
-  if (!fullEmail) return
-  uiStore.writerRef.openReply(fullEmail)
+  emailStore.fetchDetail(email.emailId).then(() => {
+    const fullEmail = emailStore.detailMap[email.emailId]
+    if (!fullEmail?._full) return
+    uiStore.writerRef.openReply(fullEmail)
+  }).catch(e => console.error(e))
 }
 
 function openForward(email) {
-  const fullEmail = emailStore.detailMap[email.emailId]
-  if (!fullEmail) return
-  uiStore.writerRef.openForward(fullEmail)
+  emailStore.fetchDetail(email.emailId).then(() => {
+    const fullEmail = emailStore.detailMap[email.emailId]
+    if (!fullEmail?._full) return
+    uiStore.writerRef.openForward(fullEmail)
+  }).catch(e => console.error(e))
 }
 
 function visibleChange(e) {

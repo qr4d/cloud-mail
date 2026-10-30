@@ -1062,6 +1062,28 @@ const emailService = {
 			.get();
 	},
 
+	async detail(c, params, userId) {
+		const emailId = Number(params.emailId);
+		if (!emailId) {
+			throw new BizError('emailId is required');
+		}
+		const emailRow = await orm(c).select({ ...emailListColumns, starId: star.starId })
+			.from(email)
+			.leftJoin(star, and(eq(star.emailId, email.emailId), eq(star.userId, userId)))
+			.where(and(
+				eq(email.emailId, emailId),
+				eq(email.userId, userId),
+				eq(email.isDel, isDel.NORMAL)
+			))
+			.get();
+		if (!emailRow) {
+			throw new BizError('email not found');
+		}
+		emailRow.isStar = emailRow.starId != null ? 1 : 0;
+		await this.emailAddAtt(c, [emailRow]);
+		return emailRow;
+	},
+
 	async latest(c, params, userId) {
 		let { emailId, accountId, allReceive } = params;
 		allReceive = Number(allReceive);
@@ -1071,7 +1093,7 @@ const emailService = {
 			allReceive = accountRow.allReceive;
 		}
 
-		const list = await orm(c).select({ ...emailListColumns }).from(email)
+		const list = await orm(c).select({ ...emailBriefColumns }).from(email)
 			.innerJoin(
 				account,
 				eq(account.accountId, email.accountId)
@@ -1088,10 +1110,7 @@ const emailService = {
 			.orderBy(desc(email.emailId))
 			.limit(20);
 
-		await this.emailAddAtt(c, list);
-		for (const item of list) {
-			item.listText = this.toListText(item);
-		}
+		this.applyListText(list);
 		return list;
 	},
 
@@ -1218,7 +1237,7 @@ const emailService = {
 
 		const { emailId } = params;
 
-		let list = await orm(c).select({ ...emailListColumns, userEmail: user.email }).from(email)
+		let list = await orm(c).select({ ...emailBriefColumns, userEmail: user.email }).from(email)
 			.leftJoin(user, eq(email.userId, user.userId))
 			.where(
 				and(
@@ -1228,10 +1247,7 @@ const emailService = {
 			.orderBy(desc(email.emailId))
 			.limit(20);
 
-		await this.emailAddAtt(c, list);
-		for (const item of list) {
-			item.listText = this.toListText(item);
-		}
+		this.applyListText(list);
 		return list;
 	},
 
