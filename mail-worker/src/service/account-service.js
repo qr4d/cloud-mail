@@ -150,10 +150,10 @@ const accountService = {
 
 		if (list.length > 0) {
 			const accountIds = list.map(a => a.accountId);
-			const countRows = await orm(c).select({
+
+			const totalRows = await orm(c).select({
 				accountId: email.accountId,
-				totalCount: count(),
-				unreadCount: sql`sum(case when ${email.unread} = ${emailConst.unread.UNREAD} then 1 else 0 end)`
+				totalCount: count()
 			}).from(email).where(and(
 				inArray(email.accountId, accountIds),
 				eq(email.userId, userId),
@@ -161,13 +161,28 @@ const accountService = {
 				eq(email.type, emailConst.type.RECEIVE)
 			)).groupBy(email.accountId).all();
 
-			const countMap = {};
-			for (const row of countRows) {
-				countMap[row.accountId] = { totalCount: row.totalCount, unreadCount: row.unreadCount || 0 };
+			const unreadRows = await orm(c).select({
+				accountId: email.accountId,
+				unreadCount: count()
+			}).from(email).where(and(
+				inArray(email.accountId, accountIds),
+				eq(email.userId, userId),
+				eq(email.isDel, isDel.NORMAL),
+				eq(email.type, emailConst.type.RECEIVE),
+				eq(email.unread, emailConst.unread.UNREAD)
+			)).groupBy(email.accountId).all();
+
+			const totalMap = {};
+			for (const row of totalRows) {
+				totalMap[row.accountId] = Number(row.totalCount);
+			}
+			const unreadMap = {};
+			for (const row of unreadRows) {
+				unreadMap[row.accountId] = Number(row.unreadCount);
 			}
 			for (const a of list) {
-				a.totalCount = countMap[a.accountId]?.totalCount || 0;
-				a.unreadCount = countMap[a.accountId]?.unreadCount || 0;
+				a.totalCount = totalMap[a.accountId] || 0;
+				a.unreadCount = unreadMap[a.accountId] || 0;
 			}
 		}
 
